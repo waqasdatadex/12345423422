@@ -608,7 +608,8 @@
                 <div class="status-message" id="loginStatusMessage"></div>
                 
                 <div style="text-align: center; margin-top: 20px; color: #666; font-size: 14px;">
-                    Contact management for login credentials
+                    Contact management for login credentials<br>
+                    <small>Demo: manager/manager123 or owner/owner123</small>
                 </div>
             </div>
 
@@ -709,8 +710,8 @@
 
     <script>
         // Configuration - Replace with your actual Google Apps Script URL
-        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID_HERE/exec';
-        const GOOGLE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID_HERE/edit';
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwT-43eW_BLJNN_hsuOMBuKCKxjqF5VaFmZLe3VewZgDJHwkAC7REBdTnW9UV1Fi1uRAg/exec';
+        const GOOGLE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1jhYJAbVAlbmVxI8faqA5wUnCpl9XmJLBCgb_5Vrp2tA/edit?gid=0#gid=0';
 
         // Store configurations
         const STORES = {
@@ -728,7 +729,7 @@
             }
         };
 
-        // Sample users database (In production, this would come from your backend)
+        // Sample users database
         const USERS = {
             'manager': { 
                 password: 'manager123', 
@@ -742,7 +743,6 @@
                 name: 'Business Owner',
                 stores: ['BackWerk Frankenthal', 'BackWerk Offenburg', 'BackWerk Karlsruhe']
             },
-            // Store-specific employees
             'anna.frankenthal': { 
                 password: 'emp123', 
                 role: 'Employee', 
@@ -764,13 +764,26 @@
         };
 
         // Global variables
-        let timeRecords = JSON.parse(localStorage.getItem('backwerkMultiStoreRecords') || '[]');
+        let timeRecords = [];
         let currentUser = null;
         let selectedStore = null;
-        let authToken = localStorage.getItem('backwerkAuthToken');
+        let authToken = null;
 
         // Initialize the app
         document.addEventListener('DOMContentLoaded', function() {
+            // Load records from storage
+            const savedRecords = localStorage.getItem('backwerkMultiStoreRecords');
+            if (savedRecords) {
+                try {
+                    timeRecords = JSON.parse(savedRecords);
+                } catch (e) {
+                    timeRecords = [];
+                }
+            }
+            
+            // Load auth token
+            authToken = localStorage.getItem('backwerkAuthToken');
+            
             updateCurrentTime();
             setInterval(updateCurrentTime, 1000);
             
@@ -826,12 +839,10 @@
             loginBtn.disabled = true;
             loginBtn.textContent = '🔄 Logging in...';
             
-            // Simulate authentication (In production, this would be a server call)
             setTimeout(() => {
                 const user = USERS[username.toLowerCase()];
                 
                 if (user && user.password === password) {
-                    // Generate mock token
                     authToken = btoa(JSON.stringify({
                         username: username,
                         timestamp: Date.now(),
@@ -857,7 +868,7 @@
                 const tokenData = JSON.parse(atob(authToken));
                 const user = USERS[tokenData.username.toLowerCase()];
                 
-                if (user && Date.now() - tokenData.timestamp < 24 * 60 * 60 * 1000) { // 24 hours
+                if (user && Date.now() - tokenData.timestamp < 24 * 60 * 60 * 1000) {
                     currentUser = user;
                     showMainApp();
                 } else {
@@ -888,7 +899,6 @@
             document.getElementById('appContainer').style.display = 'none';
             document.getElementById('logoutBtn').style.display = 'none';
             
-            // Clear form
             document.getElementById('username').value = '';
             document.getElementById('password').value = '';
             
@@ -908,18 +918,15 @@
             }
         }
 
-        // SETUP USER INTERFACE
         function setupUserInterface() {
             const isAdmin = currentUser.role === 'Manager' || currentUser.role === 'Owner';
             const storeSelect = document.getElementById('storeSelect');
             const adminControls = document.getElementById('adminControls');
             
             if (isAdmin) {
-                // Admin sees all stores
                 adminControls.style.display = 'block';
                 storeSelect.disabled = false;
             } else {
-                // Regular employee - auto-select their store
                 adminControls.style.display = 'none';
                 const userStore = currentUser.stores[0];
                 storeSelect.value = userStore;
@@ -951,7 +958,6 @@
             const adminMode = document.getElementById('adminMode')?.checked || false;
             
             if (isAdmin && adminMode) {
-                // Admin mode: show all employees for selected store
                 STORES[selectedStore].employees.forEach(name => {
                     const option = document.createElement('option');
                     option.value = name;
@@ -959,7 +965,6 @@
                     employeeSelect.appendChild(option);
                 });
             } else {
-                // Regular mode: employees see only themselves
                 const allowedEmployees = isAdmin ? 
                     STORES[selectedStore].employees : 
                     [currentUser.name];
@@ -971,7 +976,6 @@
                     employeeSelect.appendChild(option);
                 });
                 
-                // Auto-select for regular employees
                 if (!isAdmin || !adminMode) {
                     employeeSelect.value = currentUser.name;
                     employeeSelect.disabled = !isAdmin;
@@ -1013,11 +1017,9 @@
                 return;
             }
 
-            // Calculate hours worked
             const start = new Date(`${dateInput}T${startTime}:00`);
             let end = new Date(`${dateInput}T${endTime}:00`);
             
-            // Handle overnight shifts
             if (end <= start) {
                 end.setDate(end.getDate() + 1);
             }
@@ -1029,12 +1031,10 @@
                 return;
             }
 
-            // Show loading
             const submitBtn = document.getElementById('submitBtn');
             submitBtn.disabled = true;
             submitBtn.textContent = '⏳ Submitting...';
 
-            // Create record
             const record = {
                 id: Date.now(),
                 store: selectedStore,
@@ -1049,50 +1049,42 @@
             };
 
             try {
-                // In production, this would submit to Google Sheets via Apps Script
                 await simulateGoogleSheetsSubmission(record);
                 
-                // Store locally for display
                 timeRecords.push(record);
                 localStorage.setItem('backwerkMultiStoreRecords', JSON.stringify(timeRecords));
 
-                // Show success message
                 const successMsg = adminMode ? 
-                    `✅ Time entry for ${selectedEmployee} at ${selectedStore} submitted! Total: ${record.hours.toFixed(1)} hours` :
-                    `✅ Your work hours at ${selectedStore} submitted successfully! Total: ${record.hours.toFixed(1)} hours`;
+                    `Time entry for ${selectedEmployee} at ${selectedStore} submitted! Total: ${record.hours.toFixed(1)} hours` :
+                    `Your work hours at ${selectedStore} submitted successfully! Total: ${record.hours.toFixed(1)} hours`;
                 
                 showMessage(successMsg, 'success');
                 
-                // Clear time inputs but keep date, store and employee
                 document.getElementById('startTime').value = '';
                 document.getElementById('endTime').value = '';
                 
-                // Update displays
                 updateRecordsList();
                 updateMonthlyTotal();
                 
             } catch (error) {
                 console.error('Submission error:', error);
-                showMessage(`❌ Error: ${error.message}`, 'error');
+                showMessage(`Error: ${error.message}`, 'error');
             } finally {
-                // Reset button
                 submitBtn.disabled = false;
-                submitBtn.textContent = '✅ Submit Work Hours';
+                submitBtn.textContent = 'Submit Work Hours';
             }
         }
 
-        // Simulate Google Sheets submission
         async function simulateGoogleSheetsSubmission(record) {
             return new Promise((resolve, reject) => {
                 setTimeout(() => {
-                    // Simulate network delay and random success/failure
-                    if (Math.random() > 0.1) { // 90% success rate
+                    if (Math.random() > 0.1) {
                         console.log('Record submitted to Google Sheets:', record);
                         resolve({ status: 'success', message: 'Record submitted successfully' });
                     } else {
                         reject(new Error('Network error - please try again'));
                     }
-                }, 1000 + Math.random() * 2000); // 1-3 second delay
+                }, 1000 + Math.random() * 2000);
             });
         }
 
@@ -1147,7 +1139,7 @@
             const employeeRecords = timeRecords
                 .filter(r => r.store === selectedStore && r.employee === selectedEmployee)
                 .sort((a, b) => new Date(b.date) - new Date(a.date))
-                .slice(0, 10); // Show last 10 records
+                .slice(0, 10);
             
             if (employeeRecords.length === 0) {
                 recordsList.innerHTML = '<div class="no-records">No work records found for this employee at this store.</div>';
@@ -1169,7 +1161,7 @@
                         <div>
                             <div class="record-date">${date} ${adminBadge}</div>
                             <div class="record-times">
-                                🕐 ${record.startTime} - 🕕 ${record.endTime} | 🏪 ${record.store}
+                                ${record.startTime} - ${record.endTime} | ${record.store}
                             </div>
                         </div>
                         <div class="record-hours">${record.hours.toFixed(1)}h</div>
@@ -1207,10 +1199,9 @@
         }
 
         function refreshRecords() {
-            // In production, this would fetch latest data from Google Sheets
             updateRecordsList();
             updateMonthlyTotal();
-            showMessage('📊 Records refreshed!', 'success');
+            showMessage('Records refreshed!', 'success');
         }
 
         function downloadStoreReport() {
@@ -1226,14 +1217,12 @@
                 return;
             }
             
-            // Create CSV content
             let csvContent = "Store,Employee,Date,Start Time,End Time,Hours Worked,Submitted By,Admin Override\n";
             storeRecords.forEach(record => {
                 const date = new Date(record.date).toLocaleDateString('de-DE');
                 csvContent += `"${record.store}","${record.employee}","${date}","${record.startTime}","${record.endTime}","${record.hours}","${record.submittedBy || 'N/A'}","${record.isAdminSubmission || false}"\n`;
             });
             
-            // Download file
             const blob = new Blob([csvContent], { type: 'text/csv' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -1242,11 +1231,10 @@
             a.click();
             window.URL.revokeObjectURL(url);
             
-            showMessage('📥 Store report downloaded successfully!', 'success');
+            showMessage('Store report downloaded successfully!', 'success');
         }
 
         function openMasterSheet() {
-            // In production, this would open the actual Google Sheets URL
             if (currentUser.role === 'Manager' || currentUser.role === 'Owner') {
                 window.open(GOOGLE_SHEET_URL, '_blank');
             } else {
@@ -1267,19 +1255,17 @@
                 localStorage.setItem('backwerkMultiStoreRecords', JSON.stringify(timeRecords));
                 updateRecordsList();
                 updateMonthlyTotal();
-                showMessage('🗑️ Local records cleared successfully!', 'success');
+                showMessage('Local records cleared successfully!', 'success');
             }
         }
 
-        // SAMPLE DATA GENERATION (for demonstration)
+        // SAMPLE DATA GENERATION
         function generateSampleData() {
             const sampleRecords = [];
             const today = new Date();
             
-            // Generate sample data for all stores
             Object.keys(STORES).forEach(storeName => {
                 STORES[storeName].employees.forEach(employeeName => {
-                    // Generate 5-10 random entries for each employee
                     const numEntries = Math.floor(Math.random() * 6) + 5;
                     
                     for (let i = 0; i < numEntries; i++) {
@@ -1287,8 +1273,8 @@
                         const entryDate = new Date(today);
                         entryDate.setDate(entryDate.getDate() - daysAgo);
                         
-                        const startHour = Math.floor(Math.random() * 8) + 6; // 6-13
-                        const workHours = Math.floor(Math.random() * 8) + 4; // 4-11 hours
+                        const startHour = Math.floor(Math.random() * 8) + 6;
+                        const workHours = Math.floor(Math.random() * 8) + 4;
                         const endHour = startHour + workHours;
                         
                         const record = {
@@ -1309,18 +1295,16 @@
                 });
             });
             
-            // Add to existing records
             timeRecords.push(...sampleRecords);
             localStorage.setItem('backwerkMultiStoreRecords', JSON.stringify(timeRecords));
             
-            showMessage('📊 Sample data generated for all stores!', 'success');
+            showMessage('Sample data generated for all stores!', 'success');
             updateRecordsList();
             updateMonthlyTotal();
         }
 
-        // Add sample data generation button for demo purposes
+        // Add sample data generation button for demo
         document.addEventListener('DOMContentLoaded', function() {
-            // Add sample data button for demo (remove in production)
             setTimeout(() => {
                 if (timeRecords.length === 0) {
                     const dashboardHeader = document.querySelector('.dashboard-header div');
@@ -1328,7 +1312,7 @@
                         const sampleBtn = document.createElement('button');
                         sampleBtn.className = 'btn-small';
                         sampleBtn.style.background = '#6f42c1';
-                        sampleBtn.innerHTML = '🎲 Generate Sample Data';
+                        sampleBtn.innerHTML = 'Generate Sample Data';
                         sampleBtn.onclick = generateSampleData;
                         dashboardHeader.appendChild(sampleBtn);
                     }
